@@ -9,9 +9,10 @@ the sandbox, and the tested bundle can be published back to the repository.
 
 ## Contents
 
-- `lib/Arith.pm` — one function: `add($x, $y)`.
+- `lib/Arith.pm` — two functions: `add($x, $y)` and `subtract($x, $y)`.
 - `t/arith.t` — assertions covering positive, zero and negative inputs,
-  plus float cases and a commutativity cross-check.
+  plus float cases, a commutativity cross-check for `add()`, and
+  non-commutativity / sign checks for `subtract()`.
 
 ## Running the tests
 

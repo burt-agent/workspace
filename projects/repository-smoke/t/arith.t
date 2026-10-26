@@ -3,9 +3,10 @@ use warnings;
 use Test::More;
 
 use lib 'lib';
-use Arith qw(add);
+use Arith qw(add subtract);
 
 ok defined &add, 'add() was exported';
+ok defined &subtract, 'subtract() was exported';
 
 # --- positive inputs ---
 is add(1, 2), 3, 'add(1, 2) == 3';
@@ -37,5 +38,52 @@ for my $a (@vals) {
     }
 }
 ok $commutative, 'add() is commutative over {-5,-1,0,1,5}';
+
+# --- subtract: basic positive inputs ---
+is subtract(5, 3), 2, 'subtract(5, 3) == 2';
+is subtract(3, 5), -2, 'subtract(3, 5) == -2';
+is subtract(42, 42), 0, 'subtract(42, 42) == 0';
+
+# --- subtract: zero inputs ---
+is subtract(0, 0), 0, 'subtract(0, 0) == 0';
+is subtract(0, 7), -7, 'subtract(0, 7) == -7';
+is subtract(7, 0), 7, 'subtract(7, 0) == 7';
+
+# --- subtract: negative inputs ---
+is subtract(-3, -4), 1, 'subtract(-3, -4) == 1';
+is subtract(-5, 3), -8, 'subtract(-5, 3) == -8';
+is subtract(5, -9), 14, 'subtract(5, -9) == 14';
+is subtract(-1, 1), -2, 'subtract(-1, 1) == -2';
+
+# --- subtract: floats ---
+is subtract(0.75, 0.25), 0.5, 'subtract(0.75, 0.25) == 0.5';
+is subtract(-2.5, -0.5), -2, 'subtract(-2.5, -0.5) == -2';
+is subtract(-0.1, 0.1), -0.2, 'subtract(-0.1, 0.1) == -0.2';
+
+# --- subtract: inverse relationship with add ---
+is subtract(add(6, 4), 4), 6, 'subtract(add(6, 4), 4) == 6';
+is add(subtract(6, 4), 4), 6, 'add(subtract(6, 4), 4) == 6';
+
+# --- subtract: big values and identity ---
+is subtract(777777, 654321), 123456, 'subtract(777777, 654321) == 123456';
+is subtract(123456, 123456), 0, 'subtract(123456, 123456) == 0 (a - a == 0)';
+
+# subtract is anti-commutative over a small grid of values
+my $anti_commutative = 1;
+for my $a (@vals) {
+    for my $b (@vals) {
+        $anti_commutative = 0 if subtract($a, $b) != -subtract($b, $a);
+    }
+}
+ok $anti_commutative, 'subtract() is anti-commutative over {-5,-1,0,1,5}';
+
+# add and subtract are consistent on the same operands
+my $consistent = 1;
+for my $a (@vals) {
+    for my $b (@vals) {
+        $consistent = 0 if add($a, $b) != subtract($a, -$b);
+    }
+}
+ok $consistent, 'add($a, $b) == subtract($a, -$b) over {-5,-1,0,1,5}';
 
 done_testing;
