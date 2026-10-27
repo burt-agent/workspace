@@ -33,7 +33,7 @@ name so a misconfiguration fails loudly instead of hitting a random host).
 4. Charset: taken from the `Content-Type` header, default `UTF-8`.
    `utf-8`/`utf8`, `us-ascii`/`ascii`, `iso-8859-1`/`latin1`, `windows-1252`
    map to Encode names. An unknown charset is an `encoding` error, not a guess.
-5. Query words are UTF-8 percent-encoded. Words containing `/`, `\`, NUL or
+5. Query words are UTF-8 percent-encoded. Words containing `/`, `\\`, NUL or
    control characters are rejected (`usage`) rather than escaped, so a word
    can never inject an extra path segment.
 6. No authentication, no pagination, no caching, no retry logic: unimplemented.
@@ -69,14 +69,14 @@ the transport. Both failures raise `Dictionary::Error` with kind `usage`, and
 the message names the offending parameter. The value is shown with control
 characters and non-ASCII bytes escaped, so the message stays on one line.
 
-`lang` must match `\A[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*\z` -- 1-8 ASCII
+`lang` must match `\\A[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*\\z` -- 1-8 ASCII
 letters, then optional hyphen-separated 1-8 character alphanumeric subtags.
 
 - Accepted: `en`, `EN`, `a`, `abcdefgh`, `en-US`, `zh-Hant`, `ab-12345678`,
   `en-US-x-1`.
 - Rejected: `''`, `en_US`, `en-`, `-en`, `en--US`, `en1` (digit in the
   primary subtag), `abcdefghi` and `en-US-123456789` (9 character subtags),
-  `en US` / `' en'` / `'en '` (spaces), `en/us`, `en-#`, `"caf\x{e9}"`,
+  `en US` / `' en'` / `'en '` (spaces), `en/us`, `en-#`, `"caf\\x{e9}"`,
   embedded newlines, and references.
 
 `max_neighbors` must be `undef` or a nonnegative integer.
@@ -98,7 +98,7 @@ Covered: entry parsing (including two meanings and UTF-8 text), request URL
 encoding, neighbors dedupe/self-removal/limit, missing entries (404, empty
 array, null), error mapping (500/429/403, bad JSON, invalid UTF-8, unknown
 charset, transport failure, dying fetcher), and encoding equivalence between
-`\u` escapes and raw UTF-8 bytes.
+`\\u` escapes and raw UTF-8 bytes.
 
 `t/args.t` covers the constructor contract: every accepted and rejected `lang`
 and `max_neighbors` form, the `usage` kind, the message naming the parameter
