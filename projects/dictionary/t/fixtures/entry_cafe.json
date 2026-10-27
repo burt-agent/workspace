@@ -1,0 +1,30 @@
+[
+  {
+    "word": "caf\u00e9",
+    "phonetic": "k\u0259\u02c8fe\u026a",
+    "phonetics": [
+      { "text": "k\u0259\u02c8fe\u026a" },
+      { "text": "kaf", "audio": "http://audio.invalid/cafe.mp3" }
+    ],
+    "origin": "French",
+    "meanings": [
+      {
+        "partOfSpeech": "noun",
+        "definitions": [
+          {
+            "definition": "A coffee shop.",
+            "example": "meet me at the caf\u00e9",
+            "synonyms": ["coffee shop"],
+            "antonyms": []
+          },
+          { "definition": "Coffee." }
+        ]
+      },
+      {
+        "partOfSpeech": "verb",
+        "definitions": [{ "definition": "To drink coffee." }]
+      }
+    ]
+  },
+  { "word": "caf\u00e9", "meanings": [] }
+]

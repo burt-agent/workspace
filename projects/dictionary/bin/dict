@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Dictionary::Client;
+use Dictionary::Error;
+
+binmode(STDOUT, ':encoding(UTF-8)');
+binmode(STDERR, ':encoding(UTF-8)');
+
+my @args = @ARGV;
+my $mode = 'entry';
+if (@args && $args[0] eq '--neighbors') {
+    shift @args;
+    $mode = 'neighbors';
+}
+my $word = join ' ', @args;
+if (!length $word) {
+    print STDERR "usage: dict [--neighbors] <word>\n";
+    exit 1;
+}
+
+my $client = Dictionary::Client->new;
+my $ok = eval {
+    if ($mode eq 'neighbors') {
+        my $words = $client->neighbors($word);
+        print "$_\n" for @$words;
+    }
+    else {
+        my $entry = $client->lookup($word);
+        my $head = length $entry->{word} ? $entry->{word} : $word;
+        $head .= " /$entry->{phonetic}/" if length $entry->{phonetic};
+        print "$head\n";
+        for my $meaning (@{ $entry->{meanings} }) {
+            print "\n" . $meaning->{part_of_speech} . "\n" if length $meaning->{part_of_speech};
+            for my $def (@{ $meaning->{definitions} }) {
+                print "  - $def->{definition}\n";
+                print "    e.g. $def->{example}\n" if length $def->{example};
+            }
+        }
+    }
+    1;
+};
+
+if (!$ok) {
+    my $error = $@;
+    print STDERR "dict: $error\n";
+    exit 2;
+}
+exit 0;
