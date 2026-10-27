@@ -71,3 +71,11 @@ encoding, neighbors dedupe/self-removal/limit, missing entries (404, empty
 array, null), error mapping (500/429/403, bad JSON, invalid UTF-8, unknown
 charset, transport failure, dying fetcher), and encoding equivalence between
 `\u` escapes and raw UTF-8 bytes.
+
+`t/unicode.t` adds the character-level matrix on top of that: the full RFC 3986
+reserved set (including `%`, `?`, `#`, `&`, `=` and `+`), space, plus-sign and
+DEL handling, multi-byte scripts (Latin-1 accents, CJK, Cyrillic, astral-plane
+emoji), combining marks, percent-encoding round trips back to the original
+UTF-8 octets, JSON surrogate pairs, raw four-byte body text, and
+`windows-1252`/quoted-charset header handling including a deliberately
+mislabelled body that must mojibake rather than be silently repaired.
