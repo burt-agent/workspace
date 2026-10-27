@@ -61,6 +61,34 @@ CLI:
     perl -Ilib bin/dict cafe
     perl -Ilib bin/dict --neighbors cafe
 
+## Constructor validation
+
+`new` validates two arguments before it stores anything, and it does so even
+when a `fetcher` is injected, so a bad constructor argument can never reach
+the transport. Both failures raise `Dictionary::Error` with kind `usage`, and
+the message names the offending parameter. The value is shown with control
+characters and non-ASCII bytes escaped, so the message stays on one line.
+
+`lang` must match `\A[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*\z` -- 1-8 ASCII
+letters, then optional hyphen-separated 1-8 character alphanumeric subtags.
+
+- Accepted: `en`, `EN`, `a`, `abcdefgh`, `en-US`, `zh-Hant`, `ab-12345678`,
+  `en-US-x-1`.
+- Rejected: `''`, `en_US`, `en-`, `-en`, `en--US`, `en1` (digit in the
+  primary subtag), `abcdefghi` and `en-US-123456789` (9 character subtags),
+  `en US` / `' en'` / `'en '` (spaces), `en/us`, `en-#`, `"caf\x{e9}"`,
+  embedded newlines, and references.
+
+`max_neighbors` must be `undef` or a nonnegative integer.
+
+- Accepted: `undef` (no cap), `0`, `1`, `25`, `100`, `'7'`, `'0'`.
+- Rejected: `-1`, `1.5`, `''`, `'3x'`, `' 3'`, `'3 '`, `'-1'`, `'+1'`,
+  `'1e3'`, `'0x10'`, `'1_000'`, and references.
+
+Omitting either argument, or passing `undef`, still means the defaults:
+`lang => 'en'` and `max_neighbors => 25`. `lang => undef` falls back to `'en'`;
+`max_neighbors => undef` keeps meaning "no cap", as it always has.
+
 ## Tests
 
     perl run-tests.pl
@@ -71,6 +99,12 @@ encoding, neighbors dedupe/self-removal/limit, missing entries (404, empty
 array, null), error mapping (500/429/403, bad JSON, invalid UTF-8, unknown
 charset, transport failure, dying fetcher), and encoding equivalence between
 `\u` escapes and raw UTF-8 bytes.
+
+`t/args.t` covers the constructor contract: every accepted and rejected `lang`
+and `max_neighbors` form, the `usage` kind, the message naming the parameter
+and staying unbroken by control characters, the fact that no request is made
+for a rejected argument, and that the defaults survive both omission and an
+explicit `undef`.
 
 `t/unicode.t` adds the character-level matrix on top of that: the full RFC 3986
 reserved set (including `%`, `?`, `#`, `&`, `=` and `+`), space, plus-sign and

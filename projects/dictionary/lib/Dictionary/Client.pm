@@ -6,7 +6,7 @@ use Encode ();
 use JSON::PP ();
 use Dictionary::Error ();
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 # Charset names accepted in Content-Type. Anything else is an error, not a guess.
 my %CHARSET = (
@@ -21,24 +21,75 @@ my %CHARSET = (
     'cp1252'        => 'cp1252',
 );
 
+# A language tag: 1-8 ASCII letters, then optional hyphen-separated 1-8
+# character alphanumeric subtags ('en', 'en-US', 'zh-Hant').
+my $LANG_RE = qr/\A[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*\z/;
+
 sub new {
     my ($class, %arg) = @_;
+
+    # Both arguments are validated before anything is stored or fetched, so a
+    # bad constructor argument can never reach the transport.
+    my $lang = defined $arg{lang} ? $arg{lang} : 'en';
+    _check_lang($lang);
+
+    my $max_neighbors = exists $arg{max_neighbors} ? $arg{max_neighbors} : 25;
+    _check_max_neighbors($max_neighbors);
+
     my $self = bless {
         base_url      => defined $arg{base_url} ? $arg{base_url}
                        : defined $ENV{DICTIONARY_API_BASE} ? $ENV{DICTIONARY_API_BASE}
                        : 'https://api.dictionary.invalid/v1',
-        lang          => defined $arg{lang} ? $arg{lang} : 'en',
+        lang          => $lang,
         fetcher       => $arg{fetcher},
         timeout       => defined $arg{timeout} ? $arg{timeout} : 10,
-        max_neighbors => exists $arg{max_neighbors} ? $arg{max_neighbors} : 25,
+        max_neighbors => $max_neighbors,
         json          => $arg{json} || JSON::PP->new->utf8(0)->allow_nonref(1),
     }, $class;
-    $self->{base_url} =~ s{/+\z}{};
+    if (defined $self->{base_url} && !ref $self->{base_url}) {
+        $self->{base_url} =~ s{/+\z}{};
+    }
     return $self;
 }
 
 sub base_url { return $_[0]{base_url} }
 sub lang     { return $_[0]{lang} }
+
+# ---------------------------------------------------------- argument checks
+
+sub _check_lang {
+    my ($lang) = @_;
+    return 1 if defined $lang && !ref $lang && $lang =~ $LANG_RE;
+    die Dictionary::Error->new(
+        kind    => 'usage',
+        message => 'lang must be 1-8 ASCII letters with optional hyphen-separated '
+                 . '1-8 character alphanumeric subtags, got ' . _shown($lang),
+    );
+}
+
+sub _check_max_neighbors {
+    my ($value) = @_;
+    return 1 unless defined $value;
+    my $text = ref $value ? undef : "$value";
+    return 1 if defined $text && $text =~ /\A[0-9]+\z/;
+    die Dictionary::Error->new(
+        kind    => 'usage',
+        message => 'max_neighbors must be a nonnegative integer or undef, got '
+                 . _shown($value),
+    );
+}
+
+# Render an offending value for an error message using printable ASCII only, so
+# a newline or a wide character cannot break the one-line message.
+sub _shown {
+    my ($value) = @_;
+    return 'undef' unless defined $value;
+    return 'a ' . ref($value) . ' reference' if ref $value;
+    my $text = "$value";
+    $text =~ s/([^\x20-\x7e])/sprintf('\\x{%X}', ord $1)/ge;
+    $text = substr($text, 0, 60) . '...' if length $text > 60;
+    return "'$text'";
+}
 
 # ---------------------------------------------------------------- public API
 
