@@ -6,7 +6,7 @@ use Encode ();
 use JSON::PP ();
 use Dictionary::Error ();
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 # Charset names accepted in Content-Type. Anything else is an error, not a guess.
 my %CHARSET = (
@@ -25,10 +25,19 @@ my %CHARSET = (
 # character alphanumeric subtags ('en', 'en-US', 'zh-Hant').
 my $LANG_RE = qr/\A[A-Za-z]{1,8}(?:-[A-Za-z0-9]{1,8})*\z/;
 
+# How a request addresses a word. 'path' is the original, unchanged shape.
+my @STYLES = qw(path query);
+my %STYLE  = map { $_ => 1 } @STYLES;
+
+# qtype/idtype are ASCII identifiers: a letter, then up to 31 letters, digits
+# or underscores. They are never used raw in a URL anyway -- both are
+# percent-encoded -- but a fixed alphabet keeps the assumed contract honest.
+my $IDENT_RE = qr/\A[A-Za-z][A-Za-z0-9_]{0,31}\z/;
+
 sub new {
     my ($class, %arg) = @_;
 
-    # Both arguments are validated before anything is stored or fetched, so a
+    # Every argument is validated before anything is stored or fetched, so a
     # bad constructor argument can never reach the transport.
     my $lang = defined $arg{lang} ? $arg{lang} : 'en';
     _check_lang($lang);
@@ -36,11 +45,23 @@ sub new {
     my $max_neighbors = exists $arg{max_neighbors} ? $arg{max_neighbors} : 25;
     _check_max_neighbors($max_neighbors);
 
+    my $style = defined $arg{style} ? $arg{style} : 'path';
+    _check_style($style);
+
+    my $qtype = defined $arg{qtype} ? $arg{qtype} : 'entry';
+    _check_identifier($qtype, 'qtype');
+
+    my $idtype = defined $arg{idtype} ? $arg{idtype} : 'word';
+    _check_identifier($idtype, 'idtype');
+
     my $self = bless {
         base_url      => defined $arg{base_url} ? $arg{base_url}
                        : defined $ENV{DICTIONARY_API_BASE} ? $ENV{DICTIONARY_API_BASE}
                        : 'https://api.dictionary.invalid/v1',
         lang          => $lang,
+        style         => $style,
+        qtype         => $qtype,
+        idtype        => $idtype,
         fetcher       => $arg{fetcher},
         timeout       => defined $arg{timeout} ? $arg{timeout} : 10,
         max_neighbors => $max_neighbors,
@@ -54,6 +75,9 @@ sub new {
 
 sub base_url { return $_[0]{base_url} }
 sub lang     { return $_[0]{lang} }
+sub style    { return $_[0]{style} }
+sub qtype    { return $_[0]{qtype} }
+sub idtype   { return $_[0]{idtype} }
 
 # ---------------------------------------------------------- argument checks
 
@@ -76,6 +100,26 @@ sub _check_max_neighbors {
         kind    => 'usage',
         message => 'max_neighbors must be a nonnegative integer or undef, got '
                  . _shown($value),
+    );
+}
+
+sub _check_style {
+    my ($style) = @_;
+    return 1 if defined $style && !ref $style && $STYLE{$style};
+    die Dictionary::Error->new(
+        kind    => 'usage',
+        message => 'style must be one of ' . join(', ', @STYLES) . ', got '
+                 . _shown($style),
+    );
+}
+
+sub _check_identifier {
+    my ($value, $name) = @_;
+    return 1 if defined $value && !ref $value && $value =~ $IDENT_RE;
+    die Dictionary::Error->new(
+        kind    => 'usage',
+        message => "$name must be an ASCII identifier (a letter followed by up to "
+                 . '31 letters, digits or underscores), got ' . _shown($value),
     );
 }
 
@@ -108,7 +152,7 @@ sub lookup_all {
 sub neighbors {
     my ($self, $word) = @_;
     $self->_require_word($word);
-    my $path = sprintf '/neighbors/%s/%s', $self->{lang}, $self->uri_escape($word);
+    my $path = $self->_request_path('/neighbors', $word);
     my $data = $self->_get_json($path, "neighbors of '$word'");
 
     my @items = ref $data eq 'ARRAY' ? @$data : ();
@@ -184,7 +228,7 @@ sub normalize_entry {
 sub _entries {
     my ($self, $word) = @_;
     $self->_require_word($word);
-    my $path = sprintf '/entries/%s/%s', $self->{lang}, $self->uri_escape($word);
+    my $path = $self->_request_path('/entries', $word);
     my $data = $self->_get_json($path, "entry for '$word'");
 
     my @raw;
@@ -199,6 +243,27 @@ sub _entries {
         );
     }
     return \@raw;
+}
+
+# Build the request path for one resource.
+#
+# Path style is the default and has not changed: /entries/{lang}/{word}.
+# Query style moves every value into the query string in a fixed order --
+# qtype, idtype, id, lang -- and every value goes through the same uri_escape
+# as a path segment, so an id containing & or = cannot inject a parameter.
+sub _request_path {
+    my ($self, $resource, $word) = @_;
+    my $escaped = $self->uri_escape($word);
+
+    return sprintf '%s/%s/%s', $resource, $self->{lang}, $escaped
+        unless $self->{style} && $self->{style} eq 'query';
+
+    return sprintf '%s?qtype=%s&idtype=%s&id=%s&lang=%s',
+        $resource,
+        $self->uri_escape($self->{qtype}),
+        $self->uri_escape($self->{idtype}),
+        $escaped,
+        $self->uri_escape($self->{lang});
 }
 
 sub _require_word {
