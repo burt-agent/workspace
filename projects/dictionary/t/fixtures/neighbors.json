@@ -1,0 +1,12 @@
+[
+  "coffee",
+  "diner",
+  { "word": "Coffee" },
+  { "word": "espresso" },
+  "",
+  { "nope": 1 },
+  { "word": "caf\u00e9" },
+  { "word": "bistro" },
+  "bar",
+  "bistro"
+]
